@@ -226,11 +226,18 @@ That is the end of Round 4.
 ROUND 5 — THE SAME VENDOR PAYS FOR A WEEK   (River Road Farmers Market · do this after Round 4 · ~20 min)
 ==================================================================================================
 Accounts: Abuela's Kitchen and the River Road manager (as in Round 4).
+Desk-checked against the code 2026-10-16 (staging ff0cb0d8): step 1 week wording, step 3 where the booth number
+shows, step 5 Setup is collapsed + the public list's 10-minute cache.
 Look first, as anyone, logged out: open the public markets list (…/farmers_market/markets). Is River Road
 Farmers Market listed? Write down yes or no — step 5 depends on it.
 
- 1. Log in as Abuela's Kitchen. Open River Road's booking page (market page → "Book now"). Choose THIS week, tick
-    the agreement, tap "Continue to payment". On the Stripe page do NOT pay — use the browser's Back button.
+ 1. Log in as Abuela's Kitchen. Open River Road's booking page (market page → "Book now"). In the "Week" dropdown
+    keep the FIRST week offered — it starts on the coming Sunday. The dropdown never offers the week already under
+    way, so this Saturday is not bookable; that is how the code works today, not something to report. Tick the
+    agreement, tap "Continue to payment". On the Stripe page do NOT pay — use the browser's Back button.
+    If instead a red box says "No <size> booth is available for the week of … — try another size or week, or
+    contact the market manager": River Road's booth numbers are not set up for your size. Stop and report — the
+    rest of this round cannot run.
     You should see: a yellow box "You stepped away from payment" saying no charge was made and the payment page
     stays open for up to 24 hours, with a "Continue payment" button. Tap it.
     You should see: the SAME Stripe page, same amount. Use Back again.
@@ -240,20 +247,27 @@ Farmers Market listed? Write down yes or no — step 5 depends on it.
     payment below." with a "Continue payment" button under it.
 
  3. Open My Bookings (…/farmers_market/vendor/bookings).
-    You should see: River Road's week shows "Pending payment" and a "Continue payment" button. Tap it and pay
-    with the test card.
-    You should see: the confirmation shows a booth number. Write it down.
+    You should see: River Road's row reads "Week of <date> · <size> · Booth <number>" with a yellow "Pending
+    payment" pill and a "Continue payment" button. Write the booth number down NOW — it is assigned when the
+    booking is started, not when it is paid. Tap "Continue payment" and pay with the test card.
+    You should see: you land back on the booking page with "✓ Payment received". Its text says the manager will
+    reach out with a booth number — that sentence is out of date (you already have one); note it, it is not a
+    failure. Open My Bookings again: the row's pill now reads "Paid" (if still "Pending payment", wait a minute
+    and reload).
 
  4. Open the Markets page and River Road's card.
-    You should see: buttons 1 to 4 show ✓ and no button says NEXT.
+    You should see: buttons 1 to 4 show ✓ and no button says NEXT. (If "3 NEXT: Book a Booth Space" is still the
+    filled button, the payment is still being confirmed — wait a minute and reload.)
 
  5. Log in as the River Road manager. "Vendors at this market" → Abuela's Kitchen's row.
     You should see: the size and number dropdowns look greyed (grey background; the pointer shows "not allowed")
     with "Locked — paid week on file. The number changes only after a missed week, or if you cancel the paid week."
     under them; the amber "no paid week yet" note that other unpaid vendors' rows carry is gone from this row.
     Only if River Road was NOT listed publicly before this round: directly under "Action Items" there should now
-    be no amber "Your market isn't visible to buyers yet" card, and at the bottom of "Setup" a green "✓ Your market
-    is visible to buyers". Log out and check the public markets list again: River Road is listed now.
+    be no amber "Your market isn't visible to buyers yet" card. Open the "Setup" section (it is collapsed once
+    onboarding is complete) — at its bottom, a green "✓ Your market is visible to buyers". Log out and check the
+    public markets list again: River Road is listed now. The public list is cached for 10 minutes — if it is not
+    there yet, check once more after 10 minutes before reporting it.
 
 That is the end of Round 5.
 
@@ -267,6 +281,11 @@ Accounts:
   River Road manager .......... farmersmarketingapp+marketmng1@gmail.com
 The two markets without a manager that both meet on Saturday morning are Canyon Farmers Market (8–1) and
 Lubbock Saturday Market (7–12). Desert Bloom is already at one of them on Saturday; the steps say "the other one".
+Desk-checked against the code 2026-10-16 (staging ff0cb0d8): the refusal wording in steps 2 and 5 is the app's,
+not the database's; step 4 needs migration 262 on Staging.
+Check first: migration 262 (approval skips a conflicting day) must be applied on Staging — step 4 fails without
+it. If you are not sure, run step 4 anyway: a red error mentioning "Schedule conflict" on Approve means 262 is
+not there (that is the known TR-145 bug, not a new finding) — stop and report.
 
  1. Log in as Desert Bloom. Open your profile edit page (…/farmers_market/vendor/edit) and find the box "I can
     staff more than one location at the same time".
@@ -275,8 +294,9 @@ Lubbock Saturday Market (7–12). Desert Bloom is already at one of them on Satu
 
  2. On the Markets page, open the OTHER Saturday market (Canyon or Lubbock, whichever you are not yet at on
     Saturday) → "Set Schedule" → tick Saturday.
-    You should see: refused with a message that names the market you are already at during that time
-    ("Schedule conflict: overlapping times with "<market>" on the same day…").
+    You should see: a red box headed "Schedule Conflict" that names the market you are already at during that
+    time: "Schedule conflict: you're already at "<market>" on Saturdays from <hours>. Deactivate that schedule
+    first to add this one." The Saturday tick does not stick.
 
  3. Create a new listing (…/farmers_market/vendor/listings/new): any title, price and quantity; under "Available
     at" tick that same OTHER Saturday market; Save.
@@ -295,8 +315,9 @@ Lubbock Saturday Market (7–12). Desert Bloom is already at one of them on Satu
     Saturday for you.
 
  5. Still as Desert Bloom: Markets page → River Road → "Set Schedule" → tick Saturday.
-    You should see: refused with "Schedule conflict: overlapping times with "<market>" on the same day…" — the
-    rule still holds; only the manager's approval no longer fails because of it.
+    You should see: the same red "Schedule Conflict" box as step 2 ("Schedule conflict: you're already at
+    "<market>" on Saturdays from <hours>. Deactivate that schedule first to add this one.") — the rule still
+    holds; only the manager's approval no longer fails because of it.
     Finally: profile edit page → tick the box "I can staff more than one location at the same time" → Save → back
     to River Road → tick Saturday.
     You should see: it succeeds. Untick the box again afterwards and Save.
@@ -311,6 +332,8 @@ Round 1 sent Smokestack BBQ to a spot that does not allow weekly holds, so the h
 redoes just that part on Spot A, then lets the operator approve it and another truck run into it.
 Accounts: Smokestack BBQ (foodtrucknapp+truck2@gmail.com) · park operator (foodtrucknapp+parkmgr1@gmail.com) ·
 Bao Down (foodtrucknapp+truck3@gmail.com).
+Desk-checked against the code 2026-10-16 (staging ff0cb0d8): all five steps match; step 4 names the two tick
+boxes, step 5 says what to do if Round 1's Friday has already passed.
 
  1. Log in as Smokestack BBQ. Open the Sixth Street booking page (market page → "Book now"). Pick SPOT A, open
     the "Weekly hold" tab.
@@ -335,15 +358,21 @@ Bao Down (foodtrucknapp+truck3@gmail.com).
  4. Log in as Bao Down. Open the Sixth Street booking page, "Book a day", and pick Spot A.
     You should see: Spot A's card has the line "Held on Fridays — recurring truck"; in the day list every Friday is
     greyed with "— held by a recurring truck"; under the list: "Held days open to other trucks only if the recurring
-    truck doesn't pay by the Thursday before." Now switch to "Prepay a week", pick a different spot, choose a week
-    that contains a Friday, switch the spot back to Spot A and tap "Book & pay…".
-    You should see: refused — "Spot A is held by a recurring truck on Fridays. It opens to other trucks only if they
-    don't pay by the <date> cutoff — check back after that, or pick another spot." Nothing is charged.
+    truck doesn't pay by the Thursday before." Now switch to "Prepay a week" and pick a DIFFERENT spot.
+    You should see: the week rows are all selectable. Choose a week that contains a Friday, then switch the spot
+    back to Spot A.
+    You should see: that week's row goes grey with "· <Friday's date> is held by a recurring truck — pick another
+    spot for this week", but it stays selected. Tick the agreement and the compliance tick box and tap "Book &
+    pay…".
+    You should see: a red message — "Spot A is held by a recurring truck on Fridays. It opens to other trucks only
+    if they don't pay by the <date> cutoff — check back after that, or pick another spot." Nothing is charged.
 
  5. Log in as Smokestack BBQ. Open the Markets page → the strip "Your next two weeks".
-    You should see: every Friday in the strip more than 7 days away shows Sixth Street Food Park with "Standing spot
-    hold — the pay-by window opens within 7 days of the date"; the Friday you paid for in Round 1 shows "booked" with
-    "Your standing hold".
+    You should see: every Friday in the strip shows Sixth Street Food Park. A Friday more than 7 days away carries
+    "Standing spot hold — the pay-by window opens within 7 days of the date". A Friday within 7 days carries either
+    that same note or "Pay by <date> to keep your spot" — both are right (the pay-by version appears only after the
+    nightly sweep has run, and on staging that sweep runs only when triggered by hand). The Friday you paid for in
+    Round 1 shows "booked" with "Your standing hold" — skip this last check if that Friday has already passed.
 
 That is the end of Round 7.
 

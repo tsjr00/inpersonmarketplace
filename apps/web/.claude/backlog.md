@@ -1,5 +1,9 @@
 # Backlog
 
+## 💳 STRIPE LINE ITEMS UNDER-CHARGE WHEN ONE LISTING SITS IN THE CART ON TWO PICKUP DATES — found 2026-10-16 in the multi-day read (owner 2026-10-16: "should be fixed regardless of multi-day events if it currently affecting orders — but don't start fix right now")
+What the code does (HIGH from code, NOT reproduced): `api/checkout/session/route.ts:966-994` builds the Stripe line items per LISTING from the FIRST matching cart entry, while `order_items` and `orders.total_cents` carry every entry — so a cart with the same listing on two upcoming dates at a traditional market (allowed: `api/cart/items` keeps distinct rows per listing+schedule+date) charges Stripe for one date's quantity and records both. Reachable today at any market with two upcoming dates; events cannot hit it yet (shop pins one date). Evidence: `multi_day_events_research.md` B11/B14, §3.3.
+Before the fix: (1) a READ-ONLY query on Staging and Prod to learn whether any real order has hit it (orders whose item sum ≠ the Stripe amount, or two items same listing_id, same order, different pickup_date) — schema gate first; (2) the fix is in a PROTECTED money file → own file-level approval, vault diff, pinned by a flow-integrity test (line items must be built per cart ENTRY, or per listing with summed quantity and a date-tagged description); (3) sequence relative to multi-day V1: before, because V1's day chooser does not need it but V1.5/V2 mixed-day carts do.
+
 ## 🗓️ VENDOR DAYS + BOOTH NUMBERS — unified rule DESIGNED 2026-10-11, NOTHING BUILT (owner: design session first) · spec `vendor_days_and_spots_design.md` · evidence `approval_days_rule_research.md`, `market_days_scenarios.md`
 Build list (§4 of the spec, in order): 1 mig 263 (one-day → record the day, else nothing; add-a-day trigger → no-op) · 2 approval-route notice branch · 3 listing save at unmanaged markets = same one-day rule · 4 `market_schedule_changed` copy · 5 free-market auto-assign at approval · 6 private-pickup overlap WARNING (two routes + one banner) · 7 provenance column on `vendor_market_schedules` (recommended) · 8 test rewrites (owner authorisation required) · 9 testing docs (TR-087 / TR-119 / Round 4 note).
 Open rulings before any build: §6 of the spec (rule sentence · T3 notice-only · FT early return · provenance now/later · test authorisation · free-market pin not frozen).
@@ -760,7 +764,7 @@ Red banner. Owner: *"might be because there are no scores yet, but it might be a
 **Suggested order:** **A** (a deadlock with no escape beats everything) → **D** (admins locked out of a working page) → **E** (small, and it may just be an empty state) → **C** (build work) → **B** (analysis + documentation, the largest and least urgent).
 
 
-## 🎯 MULTI-DAY EVENTS — PHASE 2 (owner-decided 2026-08-14: NOT in the fees build)
+## 🎯 MULTI-DAY EVENTS — PHASE 2 (owner-decided 2026-08-14: NOT in the fees build) · RESEARCHED 2026-10-16 → `multi_day_events_research.md` (V1 = all-days-required, one transaction per day, ONE migration relaxing the two weekday clauses, end-date + restock-access setup, shop day chooser = first upcoming day WITH sellers; rulings §3.7; open: cap per event vs per day, "all days?" question now vs V2, restock field V1 vs V2)
 
 Per-day pre-ordering for multi-day events (car-show Fri/Sat): per-day schedule rows/waves, day-scoped pre-orders borrowing catering advance-order windows, **separate transaction per day** (owner leaning 2026-08-13, consistent with event-items-ordered-alone), per-day Event Vendor Fees. Schema already carries event_start_date/event_end_date; everything downstream assumes one pickup day today (shop-data pickup_date = event_date, single schedule row, per-event waves).
 

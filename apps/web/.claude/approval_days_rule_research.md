@@ -179,3 +179,70 @@ Plan (warning, never a block):
 4. Multi-location box (`profile_data.multiple_trucks` = true) → no warning (the vendor has said they can be in two places).
 5. Tests: unit test for the overlap-to-sentence helper; two flow pins (both routes call the warning helper; the warning is never an error status).
 Not in scope: events (08-27 ruling), the pre-orders nuance (no change), blocking.
+
+---
+## P — BUILD PRE-READS 2026-10-16 (every unit behind §4 of `vendor_days_and_spots_design.md`, read in full; nothing built)
+Read while the owner ran Rounds 5–7. Staging tip `ff0cb0d8`. Purpose: the planning session starts from verified mechanics.
+Owner-only items still open: the §6 rulings (6), whether mig 262 is on Staging, the Dev/Staging `pg_get_functiondef` paste for mig 263.
+
+### P1 Piece 1 — mig 263 (the three auto-create bodies)
+- **Live repo bodies = mig 262** `supabase/migrations/20261009_262_approval_skips_conflicting_days.sql`: `auto_create_vendor_schedules` :148-185 (fires only on false→true, :157; FT early return :162-164; loop over `market_schedules.active` with a per-day sub-block catching ONLY `SQLSTATE 'P0020'` :170-180); `auto_create_vendor_schedules_insert` :188-219 (same, FT return :199-201); `auto_add_schedule_to_vendors` :222-252 (loop over `market_vendors.approved = true`, same sub-block).
+- **Mounts (mig 095, applied)** `supabase/migrations/applied/20260321_095_prod_sync_triggers_indexes_policies.sql`: `trigger_auto_create_vendor_schedules` AFTER UPDATE ON market_vendors WHEN approved IS DISTINCT FROM OLD.approved :257-261; `_insert` AFTER INSERT ON market_vendors :263-266; `trigger_auto_add_schedule_to_vendors` AFTER INSERT ON market_schedules :231-234 and `_update` AFTER UPDATE WHEN active false→true :236-241. Neighbours that stay: `trigger_market_schedule_deactivation` :243-248 (cascade OFF), cart cleanup :250-253, `trg_check_vendor_schedule_conflict` BEFORE INSERT OR UPDATE ON vendor_market_schedules :350-353.
+- **263 shape that follows §1**: both approval functions → count of `market_schedules` rows for `NEW.market_id` with `active = true`; `= 1` → ONE insert inside the P0020 sub-block (ON CONFLICT DO NOTHING kept); otherwise nothing. `auto_add_schedule_to_vendors` → body reduced to `RETURN NEW` (both mounts stay; T3 no-op = §6 ruling 2). FT early return kept pending §6 ruling 3. `check_vendor_schedule_conflict` untouched.
+- **Owed pre-check before writing 263** (verification-discipline Rule 2, function-body clause): owner pastes `pg_get_functiondef` for the 4 functions from the TARGET env. 262's banner says its bodies came from Dev (:62); 262 on Staging is unconfirmed — if Staging still runs 253, 263 must also supersede 253's bodies there (same end state, so one file serves both).
+- **Pins that fail BY DESIGN (test-integrity Rule 3 → owner authorises, piece 8)**: `flow-integrity.test.ts:3869-3878` (regex LOOP + BEGIN + INSERT, and exactly one handler per function — a RETURN NEW body has zero); `:3880-3885` FT early return (survives if kept); `approval-conflict.integration.test.ts:106-120` (fixture :80-88 = Market B with Saturday AND Wednesday → expects Wednesday created; new rule → zero rows at a two-day market); `:132-135` (manager adds Sunday → expects the vendor's row; new rule → none). `:3887-3893` (route reports after a successful update) stays satisfiable.
+
+### P2 Piece 2 — approval route `app/api/market-manager/[marketId]/vendor-approval/route.ts`
+- Report path today: `skippedDays` computed only after the update succeeded and only for non-FT :205-217; vendor sentence :218 → notification data :250; manager sentence in the JSON :270-271; the row renders it only beside "✓ Approved" (`VendorBoothList.tsx:714-718`).
+- **Why it must be gated, not just left**: `approval-skipped-days.ts:44-46` defines a skipped day as "active market day with NO row for the vendor". Under the new rule a multi-day approval writes no rows, so the helper would report EVERY day as "not added because of a conflict" — a false sentence to the manager and the vendor. Gate = active-day count === 1 (route must load it: :205-210 selects only `name, vertical_id`).
+- Vendor notice base already says "Pick the days you attend on your Markets page — then you can book booth weeks here." (`lib/notifications/types.ts:904`); the booth-number clause :905-910 rides the same send (relevant to P5).
+
+### P3 Piece 3 — listing save `app/[vertical]/vendor/listings/ListingForm.tsx:441-480`
+- Filters to UNMANAGED traditional markets :441-444; ONE query for all their active schedules :449-453; per-day upsert `ignoreDuplicates: true` :460-470; conflict detected by `isScheduleConflictError` :472 (P0020 or the message, `listing-schedule-days.ts:33-37`); banner text built by `skippedListingDaysNotice` :40-55 and shown on both landing pages (`listings/page.tsx:319`, `edit/page.tsx:72`).
+- New rule = group `allSchedules` by market and keep only markets with exactly one row, THEN the same loop. Keeping the loop variable `ms` and the upsert shape keeps the pins at `flow-integrity.test.ts:3962-3975` (the `for (const ms of allSchedules)` regex and `select('id, market_id, day_of_week')`); any rename breaks them — a deliberate pin change, not a fix-up.
+
+### P4 Piece 4 — `market_schedule_changed` (`lib/notifications/types.ts:1179-1187`)
+- Generic copy ("The schedule at X has been updated… Review the new times in your vendor markets list…"), actionUrl = Markets page. Copy-only change; senders not re-read today (§E/R6 above cover them).
+
+### P5 Piece 5 — free-market auto-assign at approval (same route)
+- Today the number is validated only when the MANAGER typed one: `checkLabelBelongsToTier` :88-96 (sets `resolvedInventoryId`), `checkBoothNumberAvailable` :101-118 with `excludeSelf` + `vendorProfileId`; the UPDATE writes `booth_number` only when `boothProvided` :160-175; the SELECT returns it :174 and the notice reads `data.booth_number` :247.
+- Inputs the auto path needs: (a) "charges nothing" — the route has no such flag; the canonical test is any priced tier (`api/market-manager/[marketId]/vendors/route.ts:122-132`) / `managed-fee-gate.ts`; (b) the tier's labels — `tierLabels()` `lib/markets/booth-types.ts:88-98` from `label_prefix/label_start/label_end/labels`; (c) availability — `checkBoothNumberAvailable` (`booth-conflict-checks.ts:57`) is three count queries PER candidate; the booking RPC already has the set-based version `booth_label_candidates(market, tier)` minus placeholders/pins/rentals (mig 258 :462-477) — decision for the session: TS loop (simple, N×3 queries) or a small read-only RPC reuse. (d) tier: only when `resolvedInventoryId` is known (manager picked a size, or `requested_inventory_id`) — no size → no number. (e) To ride the existing notice the auto number must be in the UPDATE so the select returns it.
+- Not re-read today: `booth-freeze.ts` ("no freeze at free markets" relies on the paid-week test it already uses — verify in session).
+
+### P6 Piece 6 — private-pickup overlap WARNING
+- `booking-gates.ts:194-218` `loadActiveDeclaredSlots` is module-private; it joins vms→markets and excludes only `market_type === 'event'`. **Open question it raises**: does a vendor hold vms rows at their OWN private pickup? `api/vendor/markets` POST creates `market_schedules` for the windows (:615-705 read; the insert itself is below :705 — NOT READ) and the `[id]` PUT soft-upserts them (:141-180). The grep of app writers (P7) shows NO writer creating vms rows for private pickups, so the declared-slot loader almost certainly never sees them → piece 6 needs its own `loadPrivatePickupSlots` reading the vendor's own `private_pickup` markets × active `market_schedules`.
+- Surfaces: `PrivatePickupSection.tsx:17,172` has one `setError({error, code, traceId})` channel and no warning state; POST/PUT responses carry no `warning` key today (PUT tail not read).
+
+### P7 Piece 7 — provenance column: the COMPLETE writer list (by grep, 2026-10-16 — the spec said "3 app writers"; there are FIVE)
+1. Day picker PUT `api/vendor/markets/[id]/schedules/route.ts:435-439` (batch upsert, `ignoreDuplicates: false`) and PATCH `:663-666` → source 'vendor'.
+2. Listing save `ListingForm.tsx:460-470` → 'listing'.
+3. Park payment webhook `lib/stripe/webhooks.ts:2025-2047` (insert + reactivate per booked weekday) → 'payment'.
+4. **Market suggestion** `api/vendor/markets/suggest/route.ts:170-187` — when the vendor says they sell at the suggested market, upserts a row for EVERY schedule they typed (`vendor_sells_at_market`). Not in the spec; it is a vendor act, but a batch one that the §1 rule ("vendor picks") would also want narrowed to one-day markets, or left as the vendor's explicit statement. **Add to §6 as ruling 7.**
+5. The three triggers → 'approval' (and nothing from `auto_add` once no-op).
+Deactivations (`schedules/route.ts:415-416`, the mig-095 cascade) do not change provenance.
+
+### P8 Carry-forward checks for the session (all data, owner-run)
+- Count of active `market_schedules` per market on Staging — which managed markets are one-day today (River Road = Saturday only per Round 4; this is what makes the Round 4 note stay true).
+- 262 on Staging? Round 6 step 4 answers it through the app.
+
+---
+## Q — EVENTS GAP CLOSED 2026-10-16: multi-day events are single-day on the selling side; per-day attendance does not exist anywhere
+Spec §7 said "whether per-day attendance is surfaced on event pages is UNVERIFIED". Read in full today; nothing built. Confidence: HIGH from code; not run live.
+
+### Q1 One schedule row per event, always, at the START date's weekday
+- Creation (`lib/events/event-actions.ts:153-163`): one `market_schedules` insert, `day_of_week = EXTRACT(DOW of event_date)`, times from the request. Admin-created events (`api/admin/events/route.ts:359-361`) and the repeat route (`[id]/repeat/route.ts:97-125`) go through the same `approveEventRequest`.
+- Edits (mig 219 `applied/20260808_219_sync_event_request_to_market.sql:138-202`): the trigger UPDATES that one row's times and `day_of_week = EXTRACT(DOW FROM NEW.event_date)` — never adds rows for the other dates. No migration inserts per-day rows for events (grep of every file naming `event_end_date`).
+- The vendor-suggested event form sends exactly one `event_schedule_day` (`EventMarketsSection.tsx:91-117,176-178`).
+
+### Q2 The sell gate requires the pickup date's weekday to match that one row
+- Newest definer of `get_available_pickup_dates` = mig 255 (`20260918_255_…:270-274`, identical in 254 :265-269 and 238 :257-261): candidate dates for an event span `event_start_date … event_end_date` (mig 105 added the series, :226-233 of 238), BUT `WHERE EXTRACT(DOW FROM potential_date) = ls.day_of_week` still applies to events. **A Fri–Sun event therefore yields pickup dates only on Fridays inside the range** — Saturday and Sunday never validate at cart (`validate_cart_item_schedule` rests on this function, mig 105 header).
+- The event shop fixes the pickup date to the START date regardless: `lib/events/shop-data.ts:367` `pickup_date: event.event_date`; it reads the single schedule row `:147-153` ("Event markets typically have one schedule row"). Waves carry no date (`event_waves` columns, `SCHEMA_SNAPSHOT.md:920-931`: times + capacity only). The shopper event page prints only `event_date` (`events/[token]/page.tsx:173`).
+
+### Q3 Vendor-side: attendance is the whole event, never a day
+- The only record of attendance is `market_vendors.response_status` (+ `is_backup`, `organizer_selected_at`): `api/vendor/events/[marketId]/respond/route.ts:287-290` and `paired-rules.ts:88-96` forbid mirroring it into schedule/vms rows.
+- `MarketScheduleSelector`'s multi-day branch ("Select which days you'll attend this multi-day event", `:67-69, :243-247`) is **unreachable for events**: its two consumers are the Markets page card loop over the traditional list (`vendor/markets/page.tsx:265 → :457`; events render through `EventMarketsSection`, which never mounts the selector) and `DeclareDaysGate.tsx:47` (hard-coded `marketType="traditional"`). Dead branch since the 2026-08-27 "events are answered on the Vendor Event Page only" rule (`api/vendor/markets/route.ts:557-564`).
+- What DOES treat the range as multi-day: the vendor events list prints start–end (`EventMarketsSection.tsx:222-224`); the vendor event page prints the range (`vendor/events/[marketId]/page.tsx:773`); the acceptance conflict check walks every date (`lib/events/availability.ts:284` `datesBetween`); the week strip spans start..end (`week-strip.ts:523-540`); the booking-event guard spans the range (`booking-event-guard.ts:49-62`).
+
+### Q4 What this means for the design spec's "events pass"
+- There is no per-day attendance to surface; building it is a MODEL change, not a UI one: (a) a date-based attendance record (per vendor per event date — a new table or per-day schedule rows + vms), (b) the sell gate's DOW clause relaxed for events (or per-day rows), (c) the shop's `pickup_date` chosen per day, (d) waves per date, (e) the organizer's selection and fee model per vendor-day or per event (owner call). Booth/spot numbers at events still need the "assigner" role (§7).
+- **Today's behaviour the owner should know (not a regression, a limit):** a multi-day event can only take pre-orders for dates on the start day's weekday, and the shop pins every order to the start date. If a multi-day event is ever created on Prod, buyers cannot order for its other days. Candidate for `OBSERVATIONS.md` / backlog as its own item, separate from vendor days.
