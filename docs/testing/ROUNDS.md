@@ -1,8 +1,13 @@
 STAGING TEST ROUNDS
-Written 2026-10-09 from the state of staging on that day (build fbf26467). Rounds 1–3 were reported on 2026-10-10
-(OB-035/036/037) and are kept below for reference; Round 7 redoes the two steps a sheet mistake made impossible. One round = one sitting of about
-20–30 minutes. Do the rounds in any order unless a round says "do this after Round N". Nothing needs setting
-up: every step names the account to use. Ask the owner for passwords.
+Written 2026-10-09 from the state of staging on that day (build fbf26467); the state the rounds leave behind is
+written into each round's ✅ DONE note. Rounds 1–6 are done (reported 2026-10-10/11/16, OB-035 → OB-040) and are
+kept below for reference. STILL TO RUN: Round 7 (the weekly hold, done right), Round 8 (River Road: the day picker,
+the booth number, the manager's dashboard) and Round 9 (a new event asks for its tax codes; the drawn icons) —
+Rounds 8 and 9 were written 2026-10-16 from the state Rounds 4–6 left and desk-checked against the code on staging
+(build ff0cb0d8). One round = one sitting of about 20–30 minutes. Do them in any order; Round 8 should run before
+anyone changes Desert Bloom's River Road days or profile box. Nothing needs setting up: every step names the
+account to use. Ask the owner for passwords. Fixes built from earlier rounds wait in the RETEST QUEUE at the
+bottom until the owner asks for them to be compiled into a round.
 
 Staging site: https://inpersonmarketplace-git-staging-tsjr00s-projects.vercel.app
 Before you start a round, hard-refresh the page once (Ctrl+F5 on Windows, Cmd+Shift+R on Mac).
@@ -283,12 +288,30 @@ That is the end of Round 5.
 ==================================================================================================
 ROUND 6 — ONE VENDOR, TWO MARKETS ON THE SAME SATURDAY   (Canyon · Lubbock · River Road · ~25 min)
 ==================================================================================================
+✅ DONE — reported 2026-10-16 (OB-040). Do not redo. Passed: the schedule-conflict refusal at Lubbock and at River Road (red
+   "Schedule Conflict" box naming Canyon 8:00 AM – 1:00 PM, the tick never stuck; the profile box lifts it), the listing-save amber
+   "This day was not added" note (edit page, then listings page once), the approval SUCCEEDING at River Road with the vendor's
+   notice ending in the Saturday sentence and naming "Large Tent size", no Saturday on River Road's card, the vendor still refused
+   adding it herself. Found: the MANAGER's row never showed the "Saturday … was not added" line (TR-145 manager half — the line
+   was drawn only in the pending row, which disappears on success); unticking the last day showed two boxes with one meaning
+   (TR-159); the bell cuts a long notice at two lines and the first tap leaves the page (TR-160, owner chose tap-to-expand).
+   Sheet corrections: step 1 — at Canyon (no manager, no booth booking) "Manage Schedule" is button 1, "Manage Listings" 2, "Prep
+   Sheet" 3; step 4 — the row shows "✅ Approved" in its status line (the "✓ Approved" badge was the same defect). Step 4's hours
+   check matters because the rule compares TIMES on the same weekday — non-overlapping Saturdays would add the day with nothing
+   to skip. STATE LEFT: Desert Bloom's profile box "I can staff more than one location…" is STILL TICKED (untick it before any
+   round that needs it off), Saturday declared at Canyon, a Lubbock listing exists, approved at River Road with no day.
 Accounts:
   Desert Bloom Art & Garden ... farmersmarketingapp+artgvendor@gmail.com
-      (profile box "I can staff more than one location at the same time" is UNTICKED; sells at two markets)
+      (profile box "I can staff more than one location at the same time" is UNTICKED; zip 79101 Amarillo;
+      declares ONLY Wednesday at Westgate Mall — no Saturday anywhere, confirmed on Staging 2026-10-16)
   River Road manager .......... farmersmarketingapp+marketmng1@gmail.com
 The two markets without a manager that both meet on Saturday morning are Canyon Farmers Market (8–1) and
-Lubbock Saturday Market (7–12). Desert Bloom is already at one of them on Saturday; the steps say "the other one".
+Lubbock Saturday Market (7–12).
+⚠ SHEET CORRECTED 2026-10-16 after the tester's report: the first version said Desert Bloom was "already at one of
+them on Saturday" — she was not, and Lubbock does not appear on her Markets page at all because that page hides
+markets more than 100 miles from the vendor's zip (Amarillo → Lubbock is farther than that; Canyon is not). The
+listing form has no such distance rule, which is why the order below works: declare Saturday at Canyon first, then
+reach Lubbock through a listing (that puts Lubbock on the Markets page), then try its Saturday.
 Desk-checked against the code 2026-10-16 (staging ff0cb0d8): the refusal wording in steps 2 and 5 is the app's,
 not the database's; step 4 needs migration 262 on Staging.
 Check first: migration 262 (approval skips a conflicting day) must be applied on Staging — step 4 fails without
@@ -297,26 +320,33 @@ not there (that is the known TR-145 bug, not a new finding) — stop and report.
 
  1. Log in as Desert Bloom. Open your profile edit page (…/farmers_market/vendor/edit) and find the box "I can
     staff more than one location at the same time".
-    You should see: it is unticked. Leave it unticked. Open the Markets page and write down which market(s) show
-    Saturday ticked for you.
+    You should see: it is unticked. Leave it unticked. Open the Markets page: under "Available Traditional
+    Markets" tick Canyon Farmers Market to open its card → "Set Schedule" → tick Saturday.
+    You should see: Saturday sticks (Canyon is not run by a manager and you have no other Saturday) and the card's
+    second button reads "Manage Schedule". Lubbock Saturday Market is NOT in your list — expected (see the note
+    above); step 2 brings it in.
 
- 2. On the Markets page, open the OTHER Saturday market (Canyon or Lubbock, whichever you are not yet at on
-    Saturday) → "Set Schedule" → tick Saturday.
-    You should see: a red box headed "Schedule Conflict" that names the market you are already at during that
-    time: "Schedule conflict: you're already at "<market>" on Saturdays from <hours>. Deactivate that schedule
-    first to add this one." The Saturday tick does not stick.
-
- 3. Create a new listing (…/farmers_market/vendor/listings/new): any title, price and quantity; under "Available
-    at" tick that same OTHER Saturday market; Save.
+ 2. Create a new listing (…/farmers_market/vendor/listings/new): any title, price and quantity; under "Available
+    at" tick Lubbock Saturday Market (it IS offered here); Save.
     You should see: the listing saves and you land on its edit page with an amber note at the top beginning
-    "Saved. This day was not added: Saturday at <that market> because you're already at <your market> then." Open
-    the Markets page: the other market shows no Saturday for you. Edit the listing and Save again.
+    "Saved. This day was not added: Saturday at Lubbock Saturday Market because you're already at Canyon Farmers
+    Market then." Edit the listing and Save again.
     You should see: the listings page opens with the same amber note, once.
 
- 4. Open River Road Farmers Market's page and tap "Apply now"; pick any size, tick "I agree", submit.
+ 3. Open the Markets page.
+    You should see: Lubbock Saturday Market is now in your list (a market you have a listing at always shows).
+    Tick it to open its card → "Set Schedule" → tick Saturday.
+    You should see: a red box headed "Schedule Conflict": "Schedule conflict: you're already at "Canyon Farmers
+    Market" on Saturdays from <hours>. Deactivate that schedule first to add this one." The Saturday tick does not
+    stick.
+
+ 4. Check first: River Road's Saturday hours (on its market page) overlap Canyon's 8–1. If they do not, the
+    "Saturday … was not added" lines below will not appear and that is not a failure — write the hours down and
+    go on.
+    Open River Road Farmers Market's page and tap "Apply now"; pick any size, tick "I agree", submit.
     Log in as the River Road manager. "Vendors at this market" → Desert Bloom's pending row → tap "Approve".
     You should see: the approval SUCCEEDS — "✓ Approved" and, under it, a line beginning "Saturday (already at
-    <market> that day) was not added: the vendor is scheduled at another market at that time…". No error.
+    Canyon Farmers Market that day) was not added: the vendor is scheduled at another market at that time…". No error.
     Log in as Desert Bloom. Check your bell (or email).
     You should see: "You're approved at River Road Farmers Market" ending with the same Saturday sentence and
     telling you to free the other schedule or tick the profile box. On the Markets page, River Road's card shows no
@@ -386,6 +416,156 @@ That is the end of Round 7.
 
 
 ==================================================================================================
+ROUND 8 — RIVER ROAD: THE DAY PICKER, THE BOOTH NUMBER AND THE MANAGER'S DASHBOARD   (~25 min)
+==================================================================================================
+Round 6 left Desert Bloom approved at River Road with NO day there and NO booth number — exactly the situation
+Round 4 could never reach. This round uses it: she picks her day on the booking page itself, the manager holds a
+number for her, moves it, clears it, and we read the manager's dashboard while the market is in a known state.
+Accounts:
+  Desert Bloom Art & Garden ... farmersmarketingapp+artgvendor@gmail.com
+      (approved at River Road, no day there, no number; Saturday declared at Canyon; profile box "I can staff more
+      than one location at the same time" is still TICKED from Round 6 — step 1 needs it ticked, step 6 unticks it)
+  River Road manager .......... farmersmarketingapp+marketmng1@gmail.com
+Written and desk-checked against the code 2026-10-16 (staging ff0cb0d8). Nothing here pays.
+Check first: open Desert Bloom's profile edit page (…/farmers_market/vendor/edit) — the box IS ticked. If it is
+not, tick it and Save before step 1 (with it off, Saturday at River Road is refused as a conflict with Canyon).
+
+ 1. Log in as Desert Bloom. Open River Road's booking page: Markets page → tick River Road Farmers Market → its card
+    → "Book a Booth Space" (or the address Round 4 used, …/farmers_market/markets/<River Road id>/book).
+    You should see: an amber box headed "First, pick the days you attend River Road Farmers Market" with the weekday
+    toggle inside it (Saturday only — River Road meets Saturdays) and a blue button "Done — continue to booking".
+    Under it, the booking form with "Continue to payment" greyed out and the line "Pick at least one day you
+    attend River Road Farmers Market (above) to unlock booking."
+    Tick Saturday (it sticks — the profile box is on), then tap "Done — continue to booking".
+    You should see: the amber box is gone and the form is live; the booth-size dropdown is locked on Large Tent
+    with a "set by the manager" note, and under it: "You'll be given the lowest free booth number in this size when
+    you book; paying for the week makes it yours." Do NOT pay. Leave the page.
+
+ 2. Log in as the River Road manager. Manager dashboard → scroll to the "Vendors" group → the card "Vendors at this
+    market" → tab "At this market" → Desert Bloom's row.
+    You should see: the status line reads "✅ Approved · gets a booth # when they book · no paid week yet" (the
+    "not scheduled" part from Round 6 is gone — she has her Saturday now). Beside Save: the size dropdown already
+    on "Large Tent" and a number dropdown reading "— no booth # —". Open the number dropdown.
+    You should see: that size's numbers; a taken one is greyed with who holds it ("— held: <vendor>" or "— paid,
+    locked: <vendor> through <date>"); next to the dropdown a count like "3 free". If it says "No numbers set for
+    this size" write that down, skip steps 3 and 4, and expect a "has no booth numbers yet" line in step 5a.
+    Pick any free number → Save.
+    You should see: "✓ Saved", the status line now "✅ Approved · no paid week yet", and a grey line "Held for this
+    vendor until they pay for a week; theirs while they keep paying." Log in as Desert Bloom and open the bell.
+    You should see: NO new message about the number. (A first number is announced only with the approval or the
+    paid week — this one came after approval, so nothing is sent. That silence is the expected result.)
+
+ 3. As the manager again: Desert Bloom's row → pick a DIFFERENT free number → Save → "✓ Saved".
+    Log in as Desert Bloom → bell.
+    You should see: "Your booth at River Road Farmers Market is now #<new>" and, when opened, "Your booth at River
+    Road Farmers Market is now #<new> (was #<old>). The market manager moved you. Set up there."
+
+ 4. As the manager: Desert Bloom's row → set the number dropdown back to "— no booth # —" → Save → "✓ Saved"; the
+    status line reads "✅ Approved · gets a booth # when they book · no paid week yet" again.
+    Log in as Desert Bloom → bell.
+    You should see: "Booth #<new> at River Road Farmers Market is no longer held for you" — "…The market manager
+    cleared your booth number. The manager can hold another booth for you — your booked weeks are not affected."
+    Reload River Road's booking page: no blue "Your booth at River Road…" box; the "lowest free booth number"
+    line is back under the size dropdown.
+
+ 5. As the manager, reload the River Road dashboard and read three things, top to bottom:
+    a. The first card, "Action Items".
+       You should see: "Nothing needs you right now — vendor applications, booth numbers, sizes over capacity,
+       Stripe requests and season settlements show up here." A line naming a size with "no booth numbers yet" or
+       "Stripe needs more information" is possible — write it down, it is not a failure. There must be NO line
+       saying a vendor "needs a booth number": River Road charges for booths, so numbers come with the booking.
+    b. Right under it, "Setup" is a collapsed bar you can open; further down, the "Vendors" heading has the
+       coloured side rail, and the card "Vendors at this market" beneath it has a plain bold title with no rail.
+    c. Under the market's name, "📅 Your next two weeks".
+       You should see: one line per Saturday in the next 14 days, each like "Sat, Oct 24  8a–1p · N vendors
+       declared · N paid booth weeks · N orders scheduled". The Saturday of Oct 24 reads "1 paid booth week"
+       (Abuela's Kitchen's paid week from Round 5); vendors declared is at least 2 on every Saturday (Abuela's and
+       Desert Bloom). "(1 booked, unpaid)" on a later Saturday is Abuela's unpaid second week — fine. If you test
+       after Oct 24, the paid week has passed and every line may read "0 paid booth weeks" — write the dates down.
+
+ 6. Finally, as Desert Bloom: profile edit page → UNTICK "I can staff more than one location at the same time".
+    You should see, before you even save: an amber note under the box — "With this box off, you're scheduled in
+    two places at the same time:" with the line "Canyon Farmers Market (8:00 AM - 1:00 PM) and River Road Farmers
+    Market (8:00 AM - 1:00 PM) on Saturday", then "You won't be able to book booth weeks at those markets until you
+    remove one of those days." and a link "Change your days on your Markets page →". Save.
+    Open River Road's booking page.
+    You should see: under the form a line beginning "You're also scheduled at "Canyon Farmers Market" on Saturdays
+    from 8:00 AM - 1:00 PM, the same time as River Road Farmers Market. You can't be at both." and "Continue to
+    payment" greyed. Now Markets page → River Road's card → "Manage Schedule" → untick Saturday (leave Canyon as it
+    is) → reload the booking page.
+    You should see: the amber "First, pick the days…" box from step 1 is back. Leave it. (This puts Desert Bloom
+    back where Round 6 left her: box off, Saturday at Canyon only.)
+
+That is the end of Round 8.
+
+
+==================================================================================================
+ROUND 9 — A NEW EVENT ASKS FOR ITS TAX CODES, AND THE DRAWN ICONS   (your admin login · ~25 min)
+==================================================================================================
+An organizer's event request creates a brand-new location in the app, and every location needs its Texas sales-tax
+codes before anything taxable can sell there. This round files two test requests and follows the admin's side.
+Accounts: your platform-admin login (the one that sees …/food_trucks/admin). The request form needs no login.
+  For the icons in step 6: Abuela's Kitchen (farmersmarketingapp+cottagevendor2@gmail.com), Smokestack BBQ
+  (foodtrucknapp+truck2@gmail.com) and the River Road manager (farmersmarketingapp+marketmng1@gmail.com).
+Written and desk-checked against the code 2026-10-16 (staging ff0cb0d8). Each request leaves a test event on
+staging — name them "Test Event R9…" so they are easy to find and remove later. No money moves.
+
+ 1. Logged out (or as anyone), open …/food_trucks/events and scroll to the form "Book Food Trucks for Your Event".
+    You should see, at "Who's paying for the food?": ONE choice only — "Each person pays for themselves". There is
+    no "Our company pays for everyone". (A glance at …/farmers_market/events, "Host a Vendor Event": the same single
+    choice.)
+    Fill the form with test values: company name "Test Event R9 Texas", an event date at least 10 days from
+    today, any times and headcount, any street address and city, State "TX", zip 79101, any contact email. Tap
+    "Submit Event Request".
+    You should see: a green screen headed "Request Received!".
+
+ 2. Log in as the platform admin. Open the bell.
+    You should see: "Tax codes needed for a new event — Test Event R9 Texas Private Event", and when opened:
+    "Test Event R9 Texas Private Event (<the date>) was just approved. Every event gets its own location in the
+    app, and this one does not have its Texas sales-tax codes yet. Enter them on the market's Sales tax
+    jurisdictions card…". Tap the notification.
+    You should see: the Markets admin page (…/food_trucks/admin/markets) with that event's edit form already open,
+    and on the form a card "Sales tax jurisdictions" showing the Texas state line at 6.25% and no local codes.
+
+ 3. Scroll up to the filters above the list. The dropdown after "All Types" reads "Tax codes: any"; set it to
+    "Tax: no codes entered".
+    You should see: the list shrinks to the markets without codes, and "Test Event R9 Texas Private Event" is among
+    them with a red chip "tax: no codes" on its row. Set the dropdown back to "Tax codes: any".
+
+ 4. Open "Test Event R9 Texas Private Event" again (its row → Edit). In the form change "State" from TX to OK and tap
+    "Update Market". Open the event's edit form once more and, on the "Sales tax jurisdictions" card, tap "Save
+    jurisdictions" without changing anything.
+    You should see: a red message beside the button — "This market's state reads "OK". Sales tax is set up for Texas
+    only, and the app recognises a Texas location only when the state reads exactly TX. Change State to TX on the
+    market form and save, then enter the codes." Change State back to TX → "Update Market" → open the form again →
+    "Save jurisdictions".
+    You should see: "Saved" in green. (This leaves the test event with the state row only — fine for test data.)
+
+ 5. File a second request at …/food_trucks/events: company name "Test Event R9 Oklahoma", State "OK", everything
+    else as in step 1 → "Submit Event Request" → "Request Received!". As the admin, open the bell.
+    You should see: "Taxable items cannot be sold at a new event — Test Event R9 Oklahoma Private Event", opening
+    with "Test Event R9 Oklahoma Private Event (<the date>) was just approved, but its state reads "OK". Sales tax
+    in the app is set up for Texas only…". (Same card when tapped; nothing to save there.)
+
+ 6. The drawn icons. The owner's own drawings replace a few of the library icons on the dashboards; the rest keep
+    the library glyphs. Look at four screens and write down anything that looks off (size, colour, blur, a drawing
+    where a library glyph should be or the reverse):
+    a. As the admin (a shopper here): …/farmers_market/dashboard. The tile "What Markets Are Open?" carries a drawn
+       icon in the brand green; Browse, My Orders and My Favorites keep their library glyphs. Add ?icons=library to
+       the address and load it: the drawing becomes the library map pin. Change it to ?icons=custom and load: the
+       drawing is back (the choice sticks for this browser tab until you load ?icons=default).
+    b. As Abuela's Kitchen: …/farmers_market/vendor/dashboard. "My Listings" and "My Booth Bookings" carry drawn
+       icons in green; the dashboard switcher (bottom bar on a phone, side rail on a desktop) shows a small drawn
+       icon on the Vendor entry; "Shopper" keeps its library glyph.
+    c. As Smokestack BBQ: …/food_trucks/vendor/dashboard. "My Listings" (a menu drawing) and "My Park Bookings" (a
+       park drawing) in the food-truck red; the switcher's Vendor entry has the small drawing.
+    d. As the River Road manager: the switcher's "Manager" entry has the small drawn icon; the manager dashboard's
+       own cards are unchanged.
+
+That is the end of Round 9.
+
+
+==================================================================================================
 COMING ROUNDS (written once the rounds above are reported)
 ==================================================================================================
   Round 8  — Amarillo Community Market: the manager's dashboard, the week sheet, moving a held booth number.
@@ -418,4 +598,13 @@ Not a round yet. Each line becomes one step in a future round once the fix is on
     • Start a week, and on the Stripe page press the BROWSER's Back button: the booking page shows an amber "You have a
       booking for the week of … waiting for payment" box above the Week dropdown, with Continue payment, and the
       dropdown is already on that week. Continue payment opens the same Stripe page.  [TR-158]
+  From Round 6 (2026-10-16):
+    • As the River Road manager, approve a farmers-market vendor who is already at another market on an overlapping Saturday
+      (Desert Bloom again after a revoke, with her profile box UNTICKED and Saturday still at Canyon): the row shows "✓ Approved"
+      beside Save and, under the row, an amber line "Saturday (already at Canyon Farmers Market that day) was not added: the
+      vendor is scheduled at another market at that time…".  [TR-145 manager half]
+    • Markets page → a market where you attend ONE day → Manage Schedule → untick it: ONE red box ("You haven't selected any
+      days…"), no second amber "No schedules selected" note.  [TR-159]
+    • Bell → tap a notification with a long message: it opens in place and you can read all of it; a small "Open →" link
+      appears under it and is what takes you to the page; tapping the item again folds it.  [TR-160]
   Tracked, nothing to retest: page speed after applying / before Stripe (~3 s) — measured only, no change made.  [TR-151]

@@ -66,3 +66,30 @@ Passes: TR-119 TR-083 TR-086 TR-117 TR-084 (TR-133 FM again). Partial: TR-085 (n
 (approval trigger declares all active days at FM, mig 262:158-180 — Round 4 steps 5–6 were written against the wrong state; Round 6 already
 relied on the true one). Round 5 adjustments owed once ruled: direct URL for River Road's page (hidden from the list until a paid week,
 visible-markets.ts:67-84), the agreement tick before "Continue to payment" (BookBoothForm.tsx:487), ask the tester to read the bell message.
+
+## 2026-10-16 (night) — Rounds 8 and 9 written (owner: "make rounds 8 & 9 ready for me to start later")
+Why not the earlier plan (R8 = seasons, R9 = boxes): both need hidden state the owner would have to create first
+(no season is on sale on Staging — TR-122 2026-09-25; no known box subscriber) and the owner's rule is "no set-up".
+Rounds 4–6 left a state that reaches items blocked for weeks instead: Desert Bloom approved at River Road with NO
+day and NO number (TR-087's gate, the hold/move/clear notices, the roster pick), River Road quiet enough to read
+Action Items + the strip, and the 2026-10-03/09 builds (events company-paid off, tax-codes alert, tax card TX rule,
+drawn icons) ARE on staging — their registry rows wrongly said "not yet on staging" until tonight.
+Desk-checked (code read 2026-10-16): DeclareDaysGate + book/page gate copy · VendorBoothList status spans + held
+line · BoothNumberPicker option tags · vendor-booth route BR-8 condition (`boothChanging && previousBooth`) +
+booth_number_changed titles/messages · ManagerActionSummary six kinds + empty sentence · FmDashboardBody (Setup
+defaultCollapsed, TabbedCard heading="card" title "Vendors at this market") · ManagerWeekStrip wording + Sunday-keyed
+paid weeks · EditProfileForm overlap note (shows live when the box is unticked) · booking-gates conflict message ·
+EventRequestForm (PAYMENT_MODELS single option; State input maxLength 2 uppercased; street address required →
+self-service always auto-approves) · event-actions tax_codes_needed_admin fan-out to platform admins + eventName
+"<company> Private Event" · MarketsAdminPage ?edit= auto-open, tax dropdown options, TAX_CHIP labels, State
+maxLength 2, "Update Market" · MarketTaxJurisdictionsCard (state row pre-filled → Save enabled; server error shown
+red beside "Save jurisdictions") · tax-jurisdictions route refusal text · IconSetOverride + CUSTOM_ICONS + the tiles
+that use them (whereToday, listings, booth, park; switcher vendorDashboard/manager/eventManager; `locations`/`events`
+names are defined but no tile uses them).
+R8  1→TR-087 TR-104(vendor line) TR-086 · 2→TR-102 TR-072 TR-090(no notice on first hold) · 3→TR-090 · 4→TR-090 ·
+    5a→TR-098 TR-105(partial) · 5b→TR-106(partial) · 5c→TR-099 · 6→TR-044(profile note + booking line) TR-087
+R9  1→TR-141 · 2→TR-143(TX) · 3→TR-112 · 4→TR-148 · 5→TR-143(non-TX) · 6→TR-146
+Time-sensitive lines: R8 5c names Oct 24 (Abuela's paid week 2026-10-18); after Oct 24 the paid count may read 0.
+State R8 leaves: Desert Bloom box OFF, no day and no number at River Road, Saturday at Canyon (as after Round 6).
+State R9 leaves: two test event markets on staging ("Test Event R9 Texas Private Event" with the TX state row
+saved as verified; "Test Event R9 Oklahoma Private Event" with state OK) — to remove later.

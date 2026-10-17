@@ -27,6 +27,12 @@ Before every session: hard-refresh the page (Ctrl+F5 on Windows, Cmd+Shift+R on 
   while you keep paying; and coming back from Stripe with the BROWSER's Back button now shows an amber "waiting for
   payment" box above the Week dropdown with Continue payment. Steps W3 9 and W7 4 carry them.
 
+★ ADDED 2026-10-16 (Round 6 fixes): when a manager's approval could not add a day (the vendor is at another market
+  at that time), the amber "Saturday (already at …) was not added" line now shows UNDER the approved row, with
+  "✓ Approved" beside Save (before, it was drawn only in the pending row, which vanishes on success); unticking your
+  last day at a market shows ONE red box, not a second amber note; and the bell opens a notification in place when
+  you tap it — read all of it, then "Open →" takes you to the page. Steps W6 8, W7 3c and W3 5 carry them.
+
 
 ==================================================
 HOW TO REPORT
@@ -311,7 +317,8 @@ Look first (write the answers down):
     As V4: reload the Markets page and River Road's card.
     Expect: the first button shows ✓ and reads "Apply"; the filled button is "2 NEXT: Set Schedule". On River Road's
     market page the label "Applied" has become a blue button "Book now". V4's bell / email: an approval message that
-    names the booth size and carries the manager's note.
+    names the booth size and carries the manager's note. In the bell, tap the item: it opens in place so the whole
+    message is readable (it was two lines), and a small "Open →" link under it is what goes to your Markets page.
 
  6. As V4 (still no days picked): tap "Book now".
     Expect: an amber box "First, pick the days you attend River Road Farmers Market" with weekday toggles above the
@@ -507,7 +514,8 @@ All steps happen on Amarillo's manager dashboard unless a step says otherwise.
     is active at one market (call it A) on a weekday — say Saturday. A second market B (yours, as manager) runs that
     same Saturday with overlapping hours plus at least one other day. The vendor has applied to B and is pending.
     As the MANAGER of B: "Vendors at this market" → Approve the vendor.
-    Expect: the approval SUCCEEDS — "✓ Approved" and, under it, "Saturday (already at A that day) was not added: the
+    Expect: the approval SUCCEEDS — the row switches to its approved form (status "✅ Approved", the booth controls,
+    "✓ Approved" beside Save) and UNDER the row an amber line "Saturday (already at A that day) was not added: the
     vendor is scheduled at another market at that time…". NO error on the row. As the VENDOR: the bell / inbox notice
     "You're approved at B" ends with the same Saturday sentence and tells you to free the other schedule or tick the
     profile box; your Markets page shows B with the other day(s) but NOT Saturday.
@@ -556,7 +564,9 @@ Amarillo.
     b. Open one of those two markets' booking page. Expect: under the form a line beginning "You're also scheduled at
        "<the other market>" on <day>s from <time>… You can't be at both." and "Continue to payment" is disabled.
     c. Remove that day at ONE of the two markets (Markets page → the market → Manage Schedule), reload both pages.
-       Expect: the amber note is gone and the booking page lets you continue.
+       Expect: the amber note is gone and the booking page lets you continue. If that was your ONLY day at that
+       market, the schedule panel shows ONE red box ("You haven't selected any days…") — not a second amber
+       "No schedules selected" note under it.
 
  4. As the vendor with a booth NUMBER held at Amarillo: Amarillo's booking page → choose a week → tick the agreement →
     "Continue to payment" → leave Stripe with the browser's Back button (the browser's own button, not the ← link on
@@ -933,13 +943,13 @@ Registry rows satisfied by each step (a step may cover several rows; a row may s
 W1  1→TR-133 TR-138 · 2→TR-136(unlock rule) TR-137 · 3→TR-137 · 4→TR-136 · 5→TR-107 TR-140 · 6→TR-107 TR-140
     · 7→TR-133 · 8→TR-109(regression only — passed 09-27) · 9→TR-140 · 10→TR-043 TR-137(Pay now) · 11→TR-133 · 12→TR-136
 W2  1→TR-134 · 2→TR-135 · 3→TR-134 · 4→TR-139 · 5→TR-134
-W3  1→TR-119 · 2→TR-083 TR-086 · 3→TR-117 · 4→TR-119 TR-084 TR-133(FM) TR-086 · 5→TR-119 TR-085 TR-133(FM)
+W3  1→TR-119 · 2→TR-083 TR-086 · 3→TR-117 · 4→TR-119 TR-084 TR-133(FM) TR-086 · 5→TR-119 TR-085 TR-133(FM) TR-160
     · 6→TR-087 TR-086 TR-121 TR-075 · 7→TR-118 · 8→TR-118 · 9→TR-118 TR-156 TR-157 · 10→TR-119 TR-121 TR-075 TR-089 TR-072
     · 11→TR-118 TR-088(part 1) TR-082 · 12→TR-088(part 2)
 W4  1→TR-122 · 2→TR-079 (setup) · 3→TR-122 TR-079 · 4→TR-079 · 5→TR-079 · 6→TR-079 · 7→(W5 closes it)
 W5  1→TR-091 TR-099 · 2→TR-091 · 3→TR-091 · 4→TR-092 · 5→TR-122
 W6  1→TR-105 TR-106 · 2→TR-101 · 3→TR-101 TR-108 TR-120 · 4→TR-108 TR-120 · 5→TR-120 · 6→TR-124 · 7→TR-090 · 8→TR-145 · 9→TR-146
-W7  1→TR-069 · 2→TR-044 · 3→TR-044 · 4→TR-123 TR-158 · 5→TR-147
+W7  1→TR-069 · 2→TR-044 · 3→TR-044 TR-159 · 4→TR-123 TR-158 · 5→TR-147
 W8  1→TR-096 (boxes half) · 2→TR-094 (two FM questions)
 W9  1→TR-015 TR-125 · 2→TR-125 · 3→TR-014
 W10 1→TR-010 · 2→TR-001 TR-005 · 3–5→TR-002 TR-003

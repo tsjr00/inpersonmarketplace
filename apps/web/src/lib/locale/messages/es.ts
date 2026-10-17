@@ -675,6 +675,7 @@ export const es: Record<string, string> = {
   'notif_ui.empty_detail': 'Sin notificaciones aún. Verás actualizaciones de pedidos, alertas y más aquí.',
   'notif_ui.view_all': 'Ver todas las notificaciones',
   'notif_ui.view_all_arrow': 'Ver todas las notificaciones →',
+  'notif_ui.open': 'Abrir →',
   'notif_ui.just_now': 'ahora',
   'notif_ui.minutes_ago': 'hace {count}m',
   'notif_ui.hours_ago': 'hace {count}h',

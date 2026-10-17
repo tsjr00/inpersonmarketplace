@@ -84,6 +84,10 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
   const [isLoading, setIsLoading] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
+  // OB-040 / TR-160 (owner 2026-10-16, option a): a tap EXPANDS the message in
+  // place (the list clamps it to two lines); the "Open →" link inside the
+  // expanded item is what leaves the page. One item open at a time.
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const prevUnreadCountRef = useRef<number>(0)
   const hasInteractedRef = useRef(false)
@@ -292,8 +296,11 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Mark single notification as read and navigate
+  // Mark single notification as read and expand it in place (TR-160). The
+  // tester read a long approval notice cut at two lines and was taken away
+  // from it on the first tap; now the first tap opens it, "Open →" navigates.
   const handleNotificationClick = async (notification: Notification) => {
+    setExpandedId((cur) => (cur === notification.id ? null : notification.id))
     if (!notification.read_at) {
       await fetch(`/api/notifications/${notification.id}/read`, { method: 'PATCH' })
       setUnreadCount((prev) => Math.max(0, prev - 1))
@@ -301,17 +308,22 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
         prev.map((n) => (n.id === notification.id ? { ...n, read_at: new Date().toISOString() } : n))
       )
     }
+  }
 
-    // Navigate to the action URL if the type has one
+  // The action page for a notification, if its type has one.
+  const actionUrlFor = (notification: Notification): string | null => {
     const config = getNotificationConfig(notification.type)
-    if (config) {
-      const actionUrl = config.actionUrl({
-        ...(notification.data as Record<string, string> | null),
-        vertical,
-      })
-      router.push(actionUrl)
-    }
+    if (!config) return null
+    return config.actionUrl({
+      ...(notification.data as Record<string, string> | null),
+      vertical,
+    })
+  }
 
+  // Go to the notification's action page and close the dropdown.
+  const openNotification = (notification: Notification) => {
+    const actionUrl = actionUrlFor(notification)
+    if (actionUrl) router.push(actionUrl)
     setIsOpen(false)
   }
 
@@ -483,10 +495,13 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
                   warning: '#f59e0b',
                   info: primaryColor,
                 }
+                const expanded = expandedId === notification.id
+                const actionUrl = actionUrlFor(notification)
                 return (
+                  <div key={notification.id} style={{ borderBottom: `1px solid ${colors.borderMuted}`, background: notification.read_at ? 'transparent' : colors.primaryLight }}>
                   <button
-                    key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
+                    aria-expanded={expanded}
                     style={{
                       display: 'block',
                       width: '100%',
@@ -494,7 +509,6 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
                       textAlign: 'left',
                       background: notification.read_at ? 'transparent' : colors.primaryLight,
                       border: 'none',
-                      borderBottom: `1px solid ${colors.borderMuted}`,
                       borderLeft: severity !== 'info' ? `3px solid ${severityColors[severity]}` : 'none',
                       cursor: 'pointer',
                       transition: 'background-color 0.15s',
@@ -543,11 +557,14 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
                         fontSize: typography.sizes.xs,
                         color: colors.textMuted,
                         lineHeight: 1.4,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
+                        // TR-160: two lines until the item is tapped open.
+                        ...(expanded ? {} : ({
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                        } as const)),
                       }}>
                         {notification.message}
                       </p>
@@ -561,6 +578,19 @@ export function NotificationBell({ primaryColor = colors.primary, vertical }: No
                       {formatTimeAgo(notification.created_at)}
                     </span>
                   </button>
+                  {/* TR-160 (owner 2026-10-16, option a): the link that leaves the page. */}
+                  {expanded && actionUrl && (
+                    <div style={{ padding: `0 ${spacing.sm} ${spacing.xs}`, textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        onClick={() => openNotification(notification)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: primaryColor, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold, padding: `${spacing['3xs']} ${spacing['2xs']}`, minHeight: 32 }}
+                      >
+                        {t('notif_ui.open', locale)}
+                      </button>
+                    </div>
+                  )}
+                  </div>
                 )
               })
             )}

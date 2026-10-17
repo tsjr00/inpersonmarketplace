@@ -116,6 +116,10 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
   const [rowSuccess, setRowSuccess] = useState<Record<string, boolean>>({})
   // Mig 262: a day approval could not add (the vendor is at another market then) — shown under ✓ Approved.
   const [rowSkipped, setRowSkipped] = useState<Record<string, string>>({})
+  // OB-040 / TR-145 (owner 2026-10-16): the row flips to its approved branch in
+  // the same tick as the success, so the badge there must say what just
+  // happened — "✓ Approved" after an approval, "✓ Saved" after a booth save.
+  const [rowApproved, setRowApproved] = useState<Record<string, boolean>>({})
   // TR-152 (owner 2026-10-10): after an approval the server-rendered Action Items
   // card re-renders instead of waiting for a manual reload. router.refresh()
   // re-runs the page's server components; this list's own state is kept.
@@ -204,6 +208,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
         setRowError((s) => ({ ...s, [vendorProfileId]: data.error || 'Save failed' }))
       } else {
         setRowSuccess((s) => ({ ...s, [vendorProfileId]: true }))
+        setRowApproved((s) => ({ ...s, [vendorProfileId]: false }))
         // Reflect server-normalized values back into the row
         setVendors((vs) =>
           (vs || []).map((v) =>
@@ -324,6 +329,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
         setRowError((s) => ({ ...s, [vendorProfileId]: data.error || 'Approval update failed' }))
       } else {
         setRowSuccess((s) => ({ ...s, [vendorProfileId]: true }))
+        setRowApproved((s) => ({ ...s, [vendorProfileId]: !!data.approved }))
         setRowSkipped((s) => ({ ...s, [vendorProfileId]: typeof data.skipped_days_note === 'string' ? data.skipped_days_note : '' }))
         router.refresh()
         setVendors((vs) =>
@@ -711,11 +717,6 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                       ✓ Approved
                     </span>
                   )}
-                  {rowSuccess[v.vendor_profile_id] && rowSkipped[v.vendor_profile_id] && (
-                    <span role="status" style={{ display: 'block', flexBasis: '100%', color: '#a16207', fontSize: typography.sizes.xs, marginTop: 4 }}>
-                      {rowSkipped[v.vendor_profile_id]}
-                    </span>
-                  )}
                   {/* B3 — block a pending FT truck too (approve = vetted-good; block = vetted-bad). */}
                   {isFoodTruck && (
                     <button
@@ -780,7 +781,7 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                   </button>
                   {rowSuccess[v.vendor_profile_id] && (
                     <span style={{ color: colors.primary, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold }}>
-                      ✓ Saved
+                      {rowApproved[v.vendor_profile_id] ? '✓ Approved' : '✓ Saved'}
                     </span>
                   )}
                   {!!v.booth_number && !!v.has_paid_booth_week && (
@@ -839,6 +840,15 @@ export default function VendorBoothList({ marketId, vertical }: VendorBoothListP
                 </div>
               )}
 
+              {/* Mig 262 / OB-040 (TR-145): the day approval could not add. It lives
+                  OUTSIDE the pending/approved branches — the success flips the row
+                  to its approved branch in the same tick, so a line inside the
+                  pending branch was never on screen (Round 6, 2026-10-16). */}
+              {rowSuccess[v.vendor_profile_id] && rowSkipped[v.vendor_profile_id] && (
+                <div role="status" style={{ width: '100%', color: '#a16207', fontSize: typography.sizes.xs, marginTop: spacing['3xs'] }}>
+                  {rowSkipped[v.vendor_profile_id]}
+                </div>
+              )}
               {rowError[v.vendor_profile_id] && (
                 <div style={{
                   width: '100%',

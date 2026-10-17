@@ -139,10 +139,10 @@ export default function MarketScheduleSelector({
         )
         setHasAnyActive(data.hasAnyActive)
         setErrorType('warning')
-
-        if (data.warning) {
-          setError(data.warning)
-        }
+        // OB-040 / TR-159 (owner 2026-10-16): the server's "No schedules selected"
+        // warning is NOT echoed here — the standing red box under the heading
+        // already says it whenever hasAnyActive is false; the tester saw the two
+        // boxes stacked when the last day came off (Round 6).
       } else {
         if (data.code === 'ERR_SCHEDULE_HAS_ORDERS' || data.code === 'ERR_SCHEDULE_CONFLICT' || data.code === 'ERR_MARKET_APPLY_REQUIRED') {
           setErrorType('blocking')

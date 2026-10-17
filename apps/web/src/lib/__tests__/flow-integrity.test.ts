@@ -3942,6 +3942,55 @@ describe('Approval never fails on a schedule conflict elsewhere (mig 262)', () =
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Round 6 fixes — OB-040 (owner 2026-10-16)
+//
+// TR-145: the manager's "<Day> … was not added" line was rendered inside the
+// PENDING-row branch, but the approval's success flips the row to its approved
+// branch in the same tick — the line was never on screen (the vendor's notice
+// proved the data was there). TR-159: the schedule panel showed the server's
+// "No schedules selected" warning AND its own standing red box when the last
+// day came off. TR-160 (option a): a tap on a bell item expands the message
+// in place; only the "Open →" link navigates.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('Round 6 fixes — OB-040 (owner 2026-10-16)', () => {
+  const rd = (p: string) => fs.readFileSync(path.join(SRC_DIR, p), 'utf-8')
+
+  it("TR-145: the skipped-day line sits OUTSIDE the pending/approved branches and the approved row's badge reads ✓ Approved after an approval", () => {
+    const ui = rd('components/market-manager/VendorBoothList.tsx')
+    const marker = '{rowSuccess[v.vendor_profile_id] && rowSkipped[v.vendor_profile_id] && ('
+    const skipped = ui.indexOf(marker)
+    expect(skipped).toBeGreaterThan(-1)
+    expect(ui.indexOf(marker, skipped + 1), 'exactly one skipped-day line').toBe(-1)
+    // After the approved branch's last control (Revoke) and before the row's error line.
+    expect(skipped).toBeGreaterThan(ui.indexOf('requestRevoke(v.vendor_profile_id, v.business_name)'))
+    expect(skipped).toBeLessThan(ui.indexOf('{rowError[v.vendor_profile_id] && ('))
+    expect(ui).toContain('setRowApproved((s) => ({ ...s, [vendorProfileId]: !!data.approved }))')
+    expect(ui).toContain("{rowApproved[v.vendor_profile_id] ? '✓ Approved' : '✓ Saved'}")
+  })
+
+  it("TR-159: the schedule panel never echoes the server's no-days warning beside its standing red box", () => {
+    const sel = rd('components/vendor/MarketScheduleSelector.tsx')
+    expect(sel).not.toContain('setError(data.warning)')
+    expect(sel).toContain("You haven't selected any days. Your ${isFT ? 'menu' : 'listings'} won't appear")
+  })
+
+  it('TR-160: a tap on a bell item expands it in place; only the "Open →" link navigates', () => {
+    const bell = rd('components/notifications/NotificationBell.tsx')
+    const click = bell.slice(bell.indexOf('const handleNotificationClick'), bell.indexOf('const actionUrlFor'))
+    expect(click).toContain('setExpandedId((cur) => (cur === notification.id ? null : notification.id))')
+    expect(click).not.toContain('router.push')
+    const open = bell.slice(bell.indexOf('const openNotification'), bell.indexOf('// Mark all as read'))
+    expect(open).toContain('if (actionUrl) router.push(actionUrl)')
+    expect(bell).toContain('...(expanded ? {} : ({')
+    expect(bell).toContain('WebkitLineClamp: 2,')
+    expect(bell).toContain('{expanded && actionUrl && (')
+    expect(bell).toContain("t('notif_ui.open', locale)")
+    expect(rd('lib/locale/messages/en.ts')).toContain("'notif_ui.open': 'Open →'")
+    expect(rd('lib/locale/messages/es.ts')).toContain("'notif_ui.open': 'Abrir →'")
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Tester round OB-035/036 fixes (owner 2026-10-10)
 // ─────────────────────────────────────────────────────────────────────────────
 describe('Tester round 2026-10-10 fixes', () => {
